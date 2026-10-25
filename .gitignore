@@ -1,0 +1,22 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Django
+*.sqlite3
+staticfiles/
+
+# Llaves y entornos: nunca al repositorio
+.env
+.env.*
+!.env.example
+
+# Vercel
+.vercel/
+
+# Sistema
+.DS_Store
