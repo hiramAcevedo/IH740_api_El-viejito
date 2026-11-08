@@ -63,13 +63,17 @@ REST_FRAMEWORK = {
 
 CORS_ALLOWED_ORIGINS = os.environ.get("CORS_ORIGENES", "http://localhost:5173").split(",")
 
-# Pasarela de pago (Stripe en modo de prueba) y la página a la que regresa el comprador
+# Pasarela de pago (Stripe en modo de prueba). Desde el sprint 4 el comprador regresa al sitio, no a la API:
+# a /pago/confirmado si pagó y a /pago/error si salió sin pagar; cada pantalla le pregunta el estado a la API.
 STRIPE_SECRET_KEY = os.environ["STRIPE_SECRET_KEY"]
-REGRESO_URL = os.environ.get("REGRESO_URL", "http://127.0.0.1:8000/api/pagos/regreso/")
+STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+SITIO_URL = os.environ.get("SITIO_URL", "http://localhost:5173").rstrip("/")
 
 # Supabase Auth, para validar la sesión del panel en las operaciones de administración
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "")
 SUPABASE_PUBLISHABLE_KEY = os.environ.get("SUPABASE_PUBLISHABLE_KEY", "")
+# La llave de servicio: sólo aquí, nunca en el sitio. Crea y borra cuentas del panel.
+SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 
 # Reglas del importe: el IVA se suma al subtotal, como en el checkout actual; el envío sigue sin costo
 IVA = Decimal("0.16")
