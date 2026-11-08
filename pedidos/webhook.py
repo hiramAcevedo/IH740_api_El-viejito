@@ -17,6 +17,8 @@ from django.views.decorators.http import require_POST
 
 from .models import HistorialPedido, Notificacion, Pago, PagoEvento
 
+stripe.api_key = settings.STRIPE_SECRET_KEY
+
 
 def pago_por_intent(intent_id):
     pago = Pago.objects.filter(payment_intent=intent_id).first()
