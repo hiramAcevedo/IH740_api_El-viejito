@@ -67,11 +67,19 @@ migración con SQL aditivo. Las tablas de la API (`pagos`, `pagos_eventos`, `env
 `textos_legales`, `notificaciones_pedido` e `invitaciones`) tienen RLS encendido y sin políticas: sólo la API las lee y
 las escribe.
 
-Para que los avisos de Stripe lleguen a la API en local, la CLI de Stripe los reenvía y da el secreto de su firma:
+Para que los avisos de Stripe lleguen a la API en local, la CLI de Stripe los reenvía. Desde la versión 1.55 hay que
+nombrar los eventos (sin `--events` responde "must specify events to forward"); la lista es la de los que aplica el
+webhook. El secreto de la firma se pasa a la API como variable de entorno al arrancarla, sin escribirlo en `.env`:
 
 ```bash
-stripe listen --api-key "$STRIPE_SECRET_KEY" --forward-to 127.0.0.1:8000/api/webhooks/pasarela/
+EVENTOS=checkout.session.completed,checkout.session.expired,checkout.session.async_payment_succeeded,checkout.session.async_payment_failed,payment_intent.payment_failed,charge.refunded
+stripe listen --api-key "$STRIPE_SECRET_KEY" --events "$EVENTOS" --forward-to 127.0.0.1:8000/api/webhooks/pasarela/
+
+# en otra terminal
+STRIPE_WEBHOOK_SECRET="$(stripe listen --api-key "$STRIPE_SECRET_KEY" --print-secret)" uv run python manage.py runserver 127.0.0.1:8000
 ```
+
+Para repetir un aviso, por ejemplo para comprobar que la API no aplica dos veces el mismo: `stripe events resend <evt_…>`.
 
 ## Llaves y variables de entorno
 
