@@ -12,6 +12,7 @@ Las del panel están en panel.py y el aviso de la pasarela en webhook.py.
 """
 import hashlib
 import hmac
+import re
 from datetime import datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -173,11 +174,16 @@ def seguimiento(request):
     return Response(seguimiento_de(pedido))
 
 
+FOLIO = re.compile(r"^[0-9A-Fa-f]{8}$")
+
+
 @api_view(["GET"])
 def seguimiento_firmado(request, folio):
-    pedido = pedido_por_folio(folio)
+    # el folio de la ruta pasa por el mismo formato que el del formulario: ocho hexadecimales, sin comodines de LIKE
+    pedido = pedido_por_folio(folio) if FOLIO.match(folio) else None
     firma = request.query_params.get("firma", "")
-    if pedido is None or not hmac.compare_digest(firma, firma_seguimiento(pedido.folio, pedido.cliente_email)):
+    # se comparan bytes: con texto, compare_digest lanza TypeError ante una firma fuera de ASCII y la API daría 500
+    if pedido is None or not hmac.compare_digest(firma.encode(), firma_seguimiento(pedido.folio, pedido.cliente_email).encode()):
         return Response({"detail": "La liga no es válida."}, status=status.HTTP_404_NOT_FOUND)
     return Response(seguimiento_de(pedido))
 
