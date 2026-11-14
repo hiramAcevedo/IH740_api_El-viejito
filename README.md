@@ -81,6 +81,21 @@ STRIPE_WEBHOOK_SECRET="$(stripe listen --api-key "$STRIPE_SECRET_KEY" --print-se
 
 Para repetir un aviso, por ejemplo para comprobar que la API no aplica dos veces el mismo: `stripe events resend <evt_…>`.
 
+## Pruebas
+
+Las pruebas unitarias y de servicios están en `pedidos/tests/`, un archivo por área: catálogo y cotización, pedido y
+cobro, avisos de la pasarela, seguimiento, panel e invitaciones. Corren con `config/settings_pruebas.py` sobre SQLite en
+memoria, sin tocar la base de Supabase; Stripe y Supabase Auth van simulados con `unittest.mock` y el corredor corta
+cualquier llamada que intente salir a la red.
+
+```bash
+uv run python manage.py test --settings=config.settings_pruebas -v 2
+```
+
+Los avisos de Stripe se firman dentro de la prueba con un secreto propio, como los firma Stripe (HMAC-SHA256 en la
+cabecera `Stripe-Signature`). Las tablas de `inspectdb` se vuelven administradas sólo durante la corrida y el cast
+`id::text` de la búsqueda por folio se traduce para SQLite: el código de la app no cambia.
+
 ## Llaves y variables de entorno
 
 Ninguna llave entra al repositorio. En local van en `.env` (ignorado por git; `.env.example` trae los nombres) y en
