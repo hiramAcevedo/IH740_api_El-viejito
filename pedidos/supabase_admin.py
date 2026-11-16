@@ -13,6 +13,21 @@ class SinLlaveDeServicio(APIException):
     default_detail = "Falta la llave de servicio de Supabase en la API: no se pueden crear cuentas."
 
 
+class CorreoConCuenta(APIException):
+    status_code = 409
+    default_detail = "Ya existe una cuenta con ese correo."
+
+
+class CuentaRechazada(APIException):
+    status_code = 400
+    default_detail = "Supabase no creó la cuenta."
+
+
+class SupabaseNoResponde(APIException):
+    status_code = 502
+    default_detail = "Supabase Auth no respondió; intenta de nuevo en unos minutos."
+
+
 def _cabeceras():
     if not settings.SUPABASE_SERVICE_KEY:
         raise SinLlaveDeServicio()
@@ -21,11 +36,24 @@ def _cabeceras():
 
 def crear_cuenta(email, contrasena, nombre):
     """Crea la cuenta ya confirmada (el proyecto no confirma solo) y devuelve su id."""
-    r = requests.post(f"{settings.SUPABASE_URL}/auth/v1/admin/users", headers=_cabeceras(), timeout=10,
-                      json={"email": email, "password": contrasena, "email_confirm": True, "user_metadata": {"nombre": nombre}})
-    if r.status_code not in (200, 201):
-        raise APIException(r.json().get("msg") or r.json().get("message") or "Supabase no creó la cuenta.")
-    return r.json()["id"]
+    try:
+        r = requests.post(f"{settings.SUPABASE_URL}/auth/v1/admin/users", headers=_cabeceras(), timeout=10,
+                          json={"email": email, "password": contrasena, "email_confirm": True,
+                                "user_metadata": {"nombre": nombre}})
+    except requests.RequestException:
+        raise SupabaseNoResponde()
+    if r.status_code in (200, 201):
+        return r.json()["id"]
+    if r.status_code >= 500:
+        raise SupabaseNoResponde()
+    try:
+        cuerpo = r.json()
+    except ValueError:
+        cuerpo = {}
+    # un 4xx de Supabase es un rechazo con razón (correo con cuenta, contraseña que no cumple su política): no un 500
+    if cuerpo.get("error_code") == "email_exists":
+        raise CorreoConCuenta()
+    raise CuentaRechazada(cuerpo.get("msg") or cuerpo.get("message") or CuentaRechazada.default_detail)
 
 
 def borrar_cuenta(user_id):
