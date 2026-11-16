@@ -46,9 +46,10 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 # La base de Supabase, la misma del sitio, por el Session pooler (IPv4); la cadena viene de DATABASE_URL
-# La conexión con la base se reusa entre peticiones (el pooler de Supabase en modo sesión lo admite) y se revisa antes
-# de usarla; DB_CONN_MAX_AGE=0 vuelve a abrir una por petición.
-DATABASES = {"default": dj_database_url.parse(os.environ["DATABASE_URL"], conn_max_age=int(os.environ.get("DB_CONN_MAX_AGE", "60")),
+# Por omisión, una conexión por petición: el servidor de desarrollo abre un hilo por petición y, con conexiones
+# persistentes, agota el pool del pooler de Supabase en modo sesión. Con un servidor de hilos fijos (gunicorn),
+# DB_CONN_MAX_AGE=60 reusa la conexión de cada hilo y se revisa antes de usarla.
+DATABASES = {"default": dj_database_url.parse(os.environ["DATABASE_URL"], conn_max_age=int(os.environ.get("DB_CONN_MAX_AGE", "0")),
                                               conn_health_checks=True, ssl_require=True)}
 
 LANGUAGE_CODE = "es-mx"
