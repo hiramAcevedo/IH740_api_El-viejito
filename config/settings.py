@@ -46,7 +46,10 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 
 # La base de Supabase, la misma del sitio, por el Session pooler (IPv4); la cadena viene de DATABASE_URL
-DATABASES = {"default": dj_database_url.parse(os.environ["DATABASE_URL"], conn_max_age=0, ssl_require=True)}
+# La conexión con la base se reusa entre peticiones (el pooler de Supabase en modo sesión lo admite) y se revisa antes
+# de usarla; DB_CONN_MAX_AGE=0 vuelve a abrir una por petición.
+DATABASES = {"default": dj_database_url.parse(os.environ["DATABASE_URL"], conn_max_age=int(os.environ.get("DB_CONN_MAX_AGE", "60")),
+                                              conn_health_checks=True, ssl_require=True)}
 
 LANGUAGE_CODE = "es-mx"
 TIME_ZONE = "America/Mexico_City"
