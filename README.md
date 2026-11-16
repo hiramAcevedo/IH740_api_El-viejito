@@ -104,6 +104,28 @@ Vercel, en las variables de cada entorno. Stripe trabaja en su entorno de prueba
 Por ahora hay una sola base, la `main` de Supabase, que es la de producción: las ramas de la base piden el plan Pro.
 Mientras tanto, los cambios a la base son sólo aditivos y los pedidos de prueba van marcados en `notas`.
 
+### Las variables en cada entorno
+
+La API todavía no está publicada; las columnas de vista previa y producción son el plan para Vercel.
+
+| Variable | Local | Vista previa | Producción |
+|---|---|---|---|
+| `DJANGO_DEBUG` | `1` | `0` | `0` |
+| `DJANGO_SECRET_KEY` | la del `.env` | una propia | otra propia |
+| `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` | el dominio `*.vercel.app` de la API | `api.tequilaelviejito.shop` |
+| `CORS_ORIGENES` | `http://localhost:5173` | la vista previa del sitio | `https://tequilaelviejito.shop` |
+| `SITIO_URL` | `http://localhost:5173` | la vista previa del sitio | `https://tequilaelviejito.shop` |
+| `DATABASE_URL` | pooler en modo sesión (5432) | pooler en modo transacción (6543), rol de permisos mínimos | igual |
+| `DB_CONN_MAX_AGE` | `0` (servidor de desarrollo); `60` con gunicorn | `0` | `0` |
+| `STRIPE_SECRET_KEY` | `sk_test_` | `sk_test_` | `sk_test_` |
+| `STRIPE_WEBHOOK_SECRET` | el de `stripe listen --print-secret` | el del webhook registrado | el del webhook de producción |
+| `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` | las del proyecto | las mismas | las mismas |
+| `SUPABASE_SERVICE_KEY` | en el `.env` | variable sensible | variable sensible |
+
+`DB_CONN_MAX_AGE` reusa la conexión con la base: con el servidor de desarrollo, que abre un hilo por petición, agota el
+pool del pooler; con un servidor de hilos fijos (por ejemplo `gunicorn config.wsgi -w 1 --threads 10`) baja la mediana de
+las respuestas de unos 465 a 132 ms.
+
 ## Contribución
 
 Ramas por sprint y pull request hacia `main`:
