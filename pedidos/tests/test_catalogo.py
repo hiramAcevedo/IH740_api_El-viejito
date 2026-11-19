@@ -8,6 +8,13 @@ from .comun import nuevo_producto
 
 
 class CatalogoTests(TestCase):
+    def test_fuera_de_debug_un_navegador_recibe_json(self):
+        """Sin DEBUG, la API sólo habla JSON: un navegador que pide HTML recibe JSON, no la API navegable de DRF."""
+        r = self.client.get("/api/productos/", headers={"Accept": "text/html,application/xhtml+xml,*/*;q=0.8"})
+
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r["Content-Type"], "application/json")
+
     def test_catalogo_publico_solo_activos_con_precio(self):
         """El catálogo lista sólo los productos activos, con su precio, del más barato al más caro."""
         reposado = nuevo_producto("Tequila Reposado 750 ml", "429.00", tipo="Reposado")

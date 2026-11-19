@@ -10,6 +10,7 @@ import os
 
 for _nombre, _valor in {
     "DJANGO_SECRET_KEY": "clave-de-pruebas-sin-valor",
+    "DJANGO_DEBUG": "0",
     "DATABASE_URL": "sqlite://:memory:",
     "STRIPE_SECRET_KEY": "sk_test_pruebas_sin_red",
     "STRIPE_WEBHOOK_SECRET": "whsec_pruebas_sin_red",
