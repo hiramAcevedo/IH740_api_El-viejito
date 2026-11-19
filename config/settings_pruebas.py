@@ -40,3 +40,6 @@ SUPABASE_PUBLISHABLE_KEY = "llave-publica-de-pruebas"
 SUPABASE_SERVICE_KEY = "llave-de-servicio-de-pruebas"
 SITIO_URL = "https://sitio.pruebas.invalid"
 DEBUG = False
+# Sin llave de Resend: ningún correo sale de las pruebas; las que prueban el envío la ponen con override_settings
+RESEND_API_KEY = ""
+CORREO_REMITENTE = "Tequila El Viejito <pedidos@tequilaelviejito.shop>"
