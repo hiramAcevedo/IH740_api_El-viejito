@@ -27,7 +27,8 @@ class CatalogoTests(TestCase):
         productos = r.json()
         self.assertEqual([p["nombre"] for p in productos], [blanco.nombre, reposado.nombre])
         self.assertEqual([Decimal(str(p["precio"])) for p in productos], [Decimal("349.99"), Decimal("429.00")])
-        self.assertEqual(set(productos[0]), {"id", "nombre", "tipo", "precio"})
+        self.assertEqual(set(productos[0]), {"id", "nombre", "descripcion", "tipo", "precio", "imagen_url", "activo"})
+        self.assertTrue(all(p["activo"] for p in productos))
 
 
 class CotizacionTests(TestCase):

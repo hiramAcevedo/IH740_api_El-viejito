@@ -66,7 +66,9 @@ def firma_seguimiento(folio, correo):
 
 @api_view(["GET"])
 def productos(request):
-    datos = Productos.objects.filter(activo=True).order_by("precio").values("id", "nombre", "tipo", "precio")
+    # lo que muestran el catálogo y el detalle del sitio, que lo leen de aquí y no de Supabase
+    datos = (Productos.objects.filter(activo=True).order_by("precio")
+             .values("id", "nombre", "descripcion", "tipo", "precio", "imagen_url", "activo"))
     return Response(list(datos))
 
 

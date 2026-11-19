@@ -32,7 +32,7 @@ El contrato que fijó la Integradora 2 y que el sitio usa desde `src/lib/api.js`
 
 | Método | Ruta | Qué hace | Sprint |
 |--------|------|----------|--------|
-| GET | `/api/productos/` | Los productos activos con su precio | 2 |
+| GET | `/api/productos/` | Los productos activos con su precio, descripción e imagen: el catálogo del sitio | 2 |
 | POST | `/api/pedidos/calcular/` | Cotiza el carrito con los precios vigentes de la base, el IVA y el envío | 2 |
 | POST | `/api/pedidos/crear/` | Registra el pedido con el importe de aquí, la dirección (`envios`) y la confirmación de edad, que exige | 2 y 4 |
 | POST | `/api/pagos/sesion/` | Abre la sesión de Checkout de Stripe y registra el intento en `pagos`; Stripe regresa al sitio | 2 y 4 |
