@@ -39,3 +39,12 @@ class ConSesion(BasePermission):
 
     def has_permission(self, request, view):
         return request.user is not None
+
+
+class EsSuperadmin(BasePermission):
+    """Usuarios e invitaciones: sólo la cuenta del superadministrador."""
+
+    message = "Sólo el superadministrador administra las cuentas del panel."
+
+    def has_permission(self, request, view):
+        return request.user is not None and getattr(request.user, "rol", "") == "superadmin"

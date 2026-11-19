@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Tu pedido #{{ folio }} está confirmado</title></head>
+<body style="margin:0;padding:0;background:#f5f0e8;font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f0e8;padding:24px 0;">
+    <tr><td align="center">
+      <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="width:600px;max-width:100%;background:#ffffff;border-radius:8px;overflow:hidden;">
+        <tr><td style="background:#1a1a1a;padding:20px 32px;">
+          <span style="font-family:Georgia,serif;font-size:24px;font-weight:bold;color:#c9a84c;">El Viejito</span>
+          <span style="font-size:11px;letter-spacing:3px;color:#f5f0e8;display:block;">TEQUILA</span>
+        </td></tr>
+        <tr><td style="padding:32px 32px 8px;">
+          <p style="margin:0 0 8px;font-size:15px;color:#555555;">Folio de tu pedido</p>
+          <p style="margin:0;font-family:'Courier New',monospace;font-size:34px;font-weight:bold;letter-spacing:2px;">#{{ folio }}</p>
+          <h1 style="font-family:Georgia,serif;font-size:26px;margin:24px 0 8px;">Gracias por tu compra, {{ nombre }}</h1>
+          <p style="margin:0;font-size:15px;line-height:1.6;color:#555555;">Recibimos tu pago y tu pedido quedó confirmado. Con este folio y tu correo puedes seguirlo en cualquier momento.</p>
+        </td></tr>
+        <tr><td style="padding:16px 32px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-size:15px;">
+            {% for linea in lineas %}
+            <tr><td style="padding:8px 0;border-bottom:1px solid #e5e0d5;">{{ linea.nombre }} ×{{ linea.cantidad }}</td>
+                <td align="right" style="padding:8px 0;border-bottom:1px solid #e5e0d5;">${{ linea.subtotal }}</td></tr>
+            {% endfor %}
+            <tr><td style="padding:8px 0;color:#555555;">Subtotal</td><td align="right" style="padding:8px 0;color:#555555;">${{ subtotal }}</td></tr>
+            <tr><td style="padding:4px 0;color:#555555;">IVA (16 %)</td><td align="right" style="padding:4px 0;color:#555555;">${{ iva }}</td></tr>
+            <tr><td style="padding:4px 0 12px;color:#555555;">Envío</td><td align="right" style="padding:4px 0 12px;color:#555555;">{{ envio }}</td></tr>
+            <tr><td style="padding:12px 0;border-top:2px solid #1a1a1a;font-size:18px;font-weight:bold;">Total</td>
+                <td align="right" style="padding:12px 0;border-top:2px solid #1a1a1a;font-size:18px;font-weight:bold;">${{ total }}</td></tr>
+          </table>
+        </td></tr>
+        <tr><td style="padding:8px 32px 32px;">
+          <a href="{{ liga_seguimiento }}" style="display:block;text-align:center;background:#c9a84c;color:#1a1a1a;text-decoration:none;font-weight:bold;font-size:16px;padding:14px;border-radius:6px;">Seguir mi pedido</a>
+        </td></tr>
+        <tr><td style="background:#f5f0e8;padding:20px 32px;font-size:12px;line-height:1.6;color:#555555;">
+          <strong style="color:#1a1a1a;">{{ leyenda }}</strong><br>
+          Tequila El Viejito · Tototlán, Jalisco · contacto@elviejito.com
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
