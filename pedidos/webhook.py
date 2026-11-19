@@ -4,7 +4,8 @@
 2. Guarda el aviso en pagos_eventos con su id como clave única. Si esa clave ya existe, el aviso es una repetición:
    se cuenta y no se aplica otra vez.
 3. Aplica el aviso: el intento en pagos y estado_pago en el pedido, el historial y, con el pago confirmado, el correo de
-   confirmación en la cola. El estado logístico del pedido no se toca.
+   confirmación, que sale con Resend al confirmarse la transacción (pedidos/correos.py). El estado logístico del pedido
+   no se toca.
 """
 import stripe
 from django.conf import settings
@@ -15,7 +16,8 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
-from .models import HistorialPedido, Notificacion, Pago, PagoEvento
+from .correos import encolar
+from .models import HistorialPedido, Pago, PagoEvento
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -41,7 +43,7 @@ def marcar_pagado(pago):
         pedido.estado_pago = "pagado"
         pedido.save(update_fields=["estado_pago"])
         HistorialPedido.objects.create(pedido=pedido, estado="pagado")
-        Notificacion.objects.create(pedido=pedido, tipo="confirmacion", destinatario=pedido.cliente_email)
+        encolar(pedido, "confirmacion")
 
 
 def aplicar(evento):
@@ -60,7 +62,7 @@ def aplicar(evento):
                 marcar_pagado(pago)
             elif tipo == "checkout.session.completed":
                 # efectivo o transferencia: la sesión terminó, el pago llega después
-                Notificacion.objects.create(pedido=pago.pedido, tipo="pendiente", destinatario=pago.pedido.cliente_email)
+                encolar(pago.pedido, "pendiente")
         elif tipo == "checkout.session.async_payment_failed":
             pago.estado = "fallido"
             pago.save(update_fields=["estado", "actualizado"])

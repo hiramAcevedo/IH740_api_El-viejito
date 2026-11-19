@@ -5,7 +5,7 @@ cuenta siga activa en usuarios_admin; las de usuarios e invitaciones, además, q
 - GET   /api/admin/pedidos/                los pedidos con su estado logístico y el del pago
 - PATCH /api/admin/pedidos/<id>/           sólo el estado logístico; el del pago lo escribe el aviso de la pasarela
 - GET   /api/admin/envios/                 los pedidos con envío, su dirección y su guía
-- POST  /api/admin/envios/<id>/guia/       paquetería, guía y fecha: el pedido pasa a enviado y el aviso a la cola
+- POST  /api/admin/envios/<id>/guia/       paquetería, guía y fecha: el pedido pasa a enviado y sale el aviso por correo
 - GET   /api/admin/pagos/                  los intentos de cobro
 - GET   /api/admin/pagos/<id>/eventos/     los avisos de la pasarela de un intento
 - PUT   /api/admin/legal/<clave>/          un texto legal
@@ -24,7 +24,8 @@ from rest_framework import status
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.response import Response
 
-from .models import Envio, HistorialPedido, Invitacion, Notificacion, Pago, Pedidos, TextoLegal, UsuariosAdmin
+from .correos import encolar
+from .models import Envio, HistorialPedido, Invitacion, Pago, Pedidos, TextoLegal, UsuariosAdmin
 from .serializers import (AceptarInvitacionSerializer, CambioUsuarioSerializer, EstadoPedidoSerializer, GuiaSerializer,
                           InvitacionSerializer, TextoLegalSerializer, UsuarioNuevoSerializer)
 from .sesion import ConSesion, EsSuperadmin, SesionSupabase
@@ -110,7 +111,7 @@ def guia(request, pedido_id):
         e.pedido.estado = "enviado"
         e.pedido.save(update_fields=["estado"])
         HistorialPedido.objects.create(pedido=e.pedido, estado="enviado")
-        Notificacion.objects.create(pedido=e.pedido, tipo="envio", destinatario=e.pedido.cliente_email)
+        encolar(e.pedido, "envio")
     return Response(envio_del_panel(e))
 
 
