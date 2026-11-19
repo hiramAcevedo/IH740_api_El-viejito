@@ -90,6 +90,15 @@ class ComponerTests(TestCase):
         _, html = correos.componer(self.aviso("envio"))
         self.assertIn("por confirmar", html)
 
+    def test_el_pie_de_los_tres_correos_lleva_el_contacto_de_la_tienda(self):
+        """Los tres correos firman con el correo del dominio de la tienda, no con uno ajeno."""
+        Envio.objects.filter(pedido=self.pedido).update(paqueteria="Estafeta", guia="EST1")
+        for tipo in ("confirmacion", "pendiente", "envio"):
+            with self.subTest(tipo):
+                _, html = correos.componer(self.aviso(tipo))
+                self.assertIn("contacto@tequilaelviejito.shop", html)
+                self.assertNotIn("elviejito.com", html)
+
     def test_fechas_en_espanol_y_en_la_hora_de_la_ciudad_de_mexico(self):
         """Las fechas salen con el mes en español y la hora local de la Ciudad de México, con a.m. y p.m."""
         utc = ZoneInfo("UTC")
