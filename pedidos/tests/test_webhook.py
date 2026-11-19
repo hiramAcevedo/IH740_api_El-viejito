@@ -150,3 +150,111 @@ class WebhookTests(TestCase):
         self.assertEqual((self.pago.estado, self.pedido.estado_pago), ("reembolsado", "reembolsado"))
         self.assertEqual(list(self.pedido.historial.order_by("id").values_list("estado", flat=True)),
                          ["pagado", "reembolsado"])
+
+    def test_pago_diferido_rechazado_marca_el_intento_fallido_y_el_pedido_rechazado(self):
+        """checkout.session.async_payment_failed (el efectivo o la transferencia no llegó): intento fallido y pedido
+        rechazado, sin correo."""
+        r = self.avisar(evento_stripe("checkout.session.async_payment_failed", self.sesion(payment_status="unpaid")))
+
+        self.assertEqual(r.status_code, 200)
+        self.recargar()
+        self.assertEqual((self.pago.estado, self.pedido.estado_pago), ("fallido", "rechazado"))
+        self.assertFalse(Notificacion.objects.exists())
+
+    def test_aviso_de_una_sesion_ajena_se_guarda_sin_tocar_ningun_pedido(self):
+        """Un aviso de una sesión que esta API no abrió, como un evento de prueba del dashboard, se guarda sin ligarse."""
+        r = self.avisar(evento_stripe("checkout.session.completed", self.sesion(id="cs_test_de_otro_lado")))
+
+        self.assertEqual(r.status_code, 200)
+        self.recargar()
+        self.assertEqual((self.pago.estado, self.pedido.estado_pago), ("creado", "pendiente"))
+        self.assertIsNone(PagoEvento.objects.get().pago_id)
+        self.assertFalse(Notificacion.objects.exists())
+
+    def test_avisos_del_cobro_y_del_cargo_se_ligan_al_intento_sin_cambiarlo(self):
+        """payment_intent.succeeded y charge.succeeded sólo se ligan al intento: el pago lo confirma la sesión."""
+        self.avisar(evento_stripe("checkout.session.completed", self.sesion()))
+        cobro = {"id": "pi_test_webhook1", "object": "payment_intent", "status": "succeeded"}
+        cargo = {"id": "ch_test_webhook1", "object": "charge", "payment_intent": "pi_test_webhook1", "paid": True}
+
+        with mock.patch.object(stripe.checkout.Session, "list") as buscar:
+            respuestas = [self.avisar(evento_stripe(tipo, objeto))
+                          for tipo, objeto in (("payment_intent.succeeded", cobro), ("charge.succeeded", cargo))]
+
+        self.assertEqual([r.status_code for r in respuestas], [200, 200])
+        buscar.assert_not_called()
+        for tipo in ("payment_intent.succeeded", "charge.succeeded"):
+            self.assertEqual(PagoEvento.objects.get(tipo=tipo).pago_id, self.pago.id)
+        self.recargar()
+        self.assertEqual((self.pago.estado, self.pedido.estado_pago), ("pagado", "pagado"))
+        self.assertEqual(self.pedido.historial.count(), 1)
+
+    def test_tipo_de_aviso_que_la_api_no_usa_se_guarda_sin_ligarse(self):
+        r = self.avisar(evento_stripe("customer.created", {"id": "cus_test_1", "object": "customer"}))
+
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.json()["aplicado"], True)
+        self.assertIsNone(PagoEvento.objects.get().pago_id)
+
+    def test_otro_aviso_del_mismo_pago_no_duplica_historial_ni_correo(self):
+        """Si otro aviso confirma el mismo pago, como el del pago diferido tras el de la sesión, el pedido no suma otro
+        paso al historial ni otro correo."""
+        self.avisar(evento_stripe("checkout.session.completed", self.sesion()))
+        r = self.avisar(evento_stripe("checkout.session.async_payment_succeeded", self.sesion()))
+
+        self.assertEqual(r.status_code, 200)
+        self.recargar()
+        self.assertEqual((self.pago.estado, self.pedido.estado_pago), ("pagado", "pagado"))
+        self.assertEqual(self.pedido.historial.count(), 1)
+        self.assertEqual(Notificacion.objects.count(), 1)
+
+    def test_el_pago_solo_se_marca_con_payment_status_paid(self):
+        """Un aviso de pago diferido que no trae payment_status paid no marca el pago ni manda correo."""
+        r = self.avisar(evento_stripe("checkout.session.async_payment_succeeded", self.sesion(payment_status="unpaid")))
+
+        self.assertEqual(r.status_code, 200)
+        self.recargar()
+        self.assertEqual((self.pago.estado, self.pedido.estado_pago), ("creado", "pendiente"))
+        self.assertFalse(Notificacion.objects.exists())
+
+    def test_avisos_fuera_de_orden_no_deshacen_un_pago_confirmado(self):
+        """Si después del pago llegan la expiración de la sesión o un cobro fallido, el pago sigue confirmado."""
+        self.avisar(evento_stripe("checkout.session.completed", self.sesion()))
+        fallido = {"id": "pi_test_webhook1", "object": "payment_intent", "status": "requires_payment_method"}
+
+        self.avisar(evento_stripe("checkout.session.expired", self.sesion(status="expired")))
+        self.avisar(evento_stripe("payment_intent.payment_failed", fallido))
+
+        self.recargar()
+        self.assertEqual((self.pago.estado, self.pedido.estado_pago), ("pagado", "pagado"))
+
+    def test_el_cobro_fallido_de_otra_sesion_no_rechaza_un_pedido_ya_pagado(self):
+        """Si el cliente abrió dos sesiones y pagó una, el cobro fallido de la otra no rechaza el pedido."""
+        self.avisar(evento_stripe("checkout.session.completed", self.sesion()))
+        otro = Pago.objects.create(pedido=self.pedido, referencia="cs_test_webhook2", payment_intent="pi_test_webhook2",
+                                   importe=self.pedido.total)
+
+        self.avisar(evento_stripe("payment_intent.payment_failed",
+                                  {"id": "pi_test_webhook2", "object": "payment_intent", "status": "requires_payment_method"}))
+
+        otro.refresh_from_db()
+        self.recargar()
+        self.assertEqual(otro.estado, "fallido")
+        self.assertEqual(self.pedido.estado_pago, "pagado")
+
+    def test_avisos_de_cobros_ajenos_se_guardan_sin_ligarse(self):
+        """Un cobro que no salió de una sesión de esta API (Stripe no da sesión, o da una que no es nuestra) no toca nada."""
+        def lista(*ids):
+            return stripe.ListObject.construct_from(
+                {"object": "list", "url": "/v1/checkout/sessions", "has_more": False,
+                 "data": [{"id": i, "object": "checkout.session"} for i in ids]}, settings.STRIPE_SECRET_KEY)
+
+        with mock.patch.object(stripe.checkout.Session, "list", side_effect=[lista(), lista("cs_test_de_otro_lado")]):
+            fallo = self.avisar(evento_stripe("payment_intent.payment_failed", {"id": "pi_test_ajeno1", "object": "payment_intent"}))
+            reembolso = self.avisar(evento_stripe("charge.refunded", {"id": "ch_test_ajeno", "object": "charge",
+                                                                      "payment_intent": "pi_test_ajeno2"}))
+
+        self.assertEqual((fallo.status_code, reembolso.status_code), (200, 200))
+        self.assertEqual(list(PagoEvento.objects.values_list("pago_id", flat=True)), [None, None])
+        self.recargar()
+        self.assertEqual((self.pago.estado, self.pedido.estado_pago), ("creado", "pendiente"))

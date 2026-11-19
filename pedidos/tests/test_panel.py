@@ -198,4 +198,5 @@ class PanelTests(ConPanel, TestCase):
         self.assertEqual(self.client.get("/api/legal/no-existe/").status_code, 404)
         self.assertEqual(self.llamar("put", "/api/admin/legal/privacidad/", nuevo).status_code, 401)
         self.assertEqual(self.llamar("put", "/api/admin/legal/privacidad/", nuevo, headers=self.sesion).status_code, 200)
+        self.assertEqual(self.llamar("put", "/api/admin/legal/no-existe/", nuevo, headers=self.sesion).status_code, 404)
         self.assertEqual(self.client.get("/api/legal/privacidad/").json()["contenido"], "Texto revisado.")
