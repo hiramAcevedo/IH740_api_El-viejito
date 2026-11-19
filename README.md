@@ -43,7 +43,7 @@ El contrato que fijó la Integradora 2 y que el sitio usa desde `src/lib/api.js`
 | GET | `/api/legal/<clave>/` | Aviso de privacidad, términos de venta y leyenda | 4 |
 | GET | `/api/admin/resumen/` | Las cuentas del dashboard | 4 |
 | GET, PATCH | `/api/admin/pedidos/` | Los pedidos con sus dos estados; el PATCH cambia sólo el logístico | 2 y 4 |
-| GET, POST | `/api/admin/envios/` y `.../<id>/guia/` | Los envíos y su guía; con la guía, el pedido pasa a enviado y el aviso queda en la cola | 4 |
+| GET, POST | `/api/admin/envios/` y `.../<id>/guia/` | Los envíos y su guía; con la guía, el pedido pasa a enviado y sale el aviso por correo | 4 |
 | GET | `/api/admin/pagos/` y `.../<id>/eventos/` | Los intentos de cobro y sus avisos | 4 |
 | PUT | `/api/admin/legal/<clave>/` | Edita un texto legal | 4 |
 | GET, POST, PATCH, DELETE | `/api/admin/usuarios/` | Sólo el superadministrador: cuentas del panel, alta directa, apagado y baja | 4 |
@@ -114,8 +114,12 @@ La API todavía no está publicada; las columnas de vista previa y producción s
 | `DJANGO_SECRET_KEY` | la del `.env` | una propia | otra propia |
 | `DJANGO_ALLOWED_HOSTS` | `localhost,127.0.0.1` | el dominio `*.vercel.app` de la API | `api.tequilaelviejito.shop` |
 | `CORS_ORIGENES` | `http://localhost:5173` | la vista previa del sitio | `https://tequilaelviejito.shop` |
+| `CORS_ORIGENES_REGEX` | vacía | la expresión de las URL de vista previa del sitio en `vercel.app` | vacía |
+| `CSRF_ORIGENES` | vacía | vacía | vacía: la API no usa sesiones de Django ni el middleware de CSRF |
 | `SITIO_URL` | `http://localhost:5173` | la vista previa del sitio | `https://tequilaelviejito.shop` |
 | `DATABASE_URL` | pooler en modo sesión (5432) | pooler en modo transacción (6543), rol de permisos mínimos | igual |
+| `RESEND_API_KEY` | vacía: los avisos se quedan en la cola | la de Resend | la de Resend, variable sensible |
+| `CORREO_REMITENTE` | `Tequila El Viejito <pedidos@tequilaelviejito.shop>` | igual | igual, con el dominio verificado en Resend |
 | `DB_CONN_MAX_AGE` | `0` (servidor de desarrollo); `60` con gunicorn | `0` | `0` |
 | `STRIPE_SECRET_KEY` | `sk_test_` | `sk_test_` | `sk_test_` |
 | `STRIPE_WEBHOOK_SECRET` | el de `stripe listen --print-secret` | el del webhook registrado | el del webhook de producción |
@@ -125,6 +129,35 @@ La API todavía no está publicada; las columnas de vista previa y producción s
 `DB_CONN_MAX_AGE` reusa la conexión con la base: con el servidor de desarrollo, que abre un hilo por petición, agota el
 pool del pooler; con un servidor de hilos fijos (por ejemplo `gunicorn config.wsgi -w 1 --threads 10`) baja la mediana de
 las respuestas de unos 465 a 132 ms.
+
+## Correos al cliente
+
+La confirmación del pago, el aviso de pago pendiente y el aviso de envío salen con
+[Resend](https://resend.com/docs/api-reference/emails/send-email) desde `pedidos/correos.py`, con las plantillas de
+`pedidos/templates/correos/`. Cada aviso se guarda primero en `notificaciones_pedido` y sale cuando se confirma la
+transacción que lo creó. El envío es de mejor esfuerzo: si Resend falla, o si la API no tiene `RESEND_API_KEY`, el aviso
+queda en la tabla como `fallido` o `en_cola` y el pago o la guía se registran igual. Un aviso repetido de Stripe no manda
+otro correo, y cada aviso lleva su llave de idempotencia de Resend, así que un reintento no duplica un correo que ya salió.
+
+```bash
+uv run python manage.py enviar_correos                  # los avisos en cola o fallidos con menos de 5 intentos
+uv run python manage.py enviar_correos --max-intentos 8
+```
+
+## Despliegue en Vercel
+
+Vercel reconoce Django por `manage.py` y publica `config/wsgi.py` como una función de Python
+([Django en Vercel](https://vercel.com/docs/frameworks/full-stack/django),
+[runtime de Python](https://vercel.com/docs/functions/runtimes/python)). Instala las dependencias de `pyproject.toml` y
+`uv.lock`, con el Python de `.python-version`. No hay `STATIC_ROOT`: fuera de DEBUG la API sólo responde JSON y no sirve
+archivos estáticos.
+
+- `vercel.json` fija la región de la función en `pdx1` (Portland), junto a la base de Supabase en `us-west-2`. En la
+  región por omisión, `iad1`, cada consulta cruzaría el país de ida y vuelta.
+- `DATABASE_URL` va al pooler en modo transacción (puerto 6543): `settings.py` apaga las sentencias preparadas y los
+  cursores del lado del servidor, que ese modo no admite.
+- El rol de la base con permisos mínimos está en `docs/sql/rol_api.sql`, sin aplicar y sin contraseña: lo aplica quien
+  administra la base, con el rol `postgres`. Las migraciones siguen corriendo con `postgres`.
 
 ## Contribución
 
